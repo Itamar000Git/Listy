@@ -1,0 +1,248 @@
+import { z } from "zod";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
+import { GENERIC_TASK_IMAGE_KEYS } from "@/lib/images/generic-task-images";
+
+/**
+ * IDs (profileId/listId/taskId) are interpolated directly into Firestore
+ * document paths (e.g. `families/{id}/profiles/{profileId}/lists/{listId}`).
+ * Firestore's Admin SDK resolves a path by splitting on "/", so an ID
+ * containing a slash would inject extra path segments and could resolve
+ * to a document outside the intended family/profile/list subtree. This
+ * schema rejects that before the value ever reaches a path builder.
+ */
+export const firestoreIdSchema = z
+  .string()
+  .min(1, "מזהה לא תקין")
+  .max(200, "מזהה לא תקין")
+  .refine((value) => !value.includes("/") && value !== "." && value !== "..", {
+    message: "מזהה לא תקין",
+  });
+
+export const familyNameSchema = z
+  .string()
+  .trim()
+  .min(1, "יש להזין שם משפחה")
+  .max(40, "שם המשפחה ארוך מדי");
+
+export const timezoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .default("Asia/Jerusalem")
+  .refine(
+    (value) => {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: value });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: "אזור זמן לא תקין" },
+  );
+
+export const familyBootstrapSchema = z.object({
+  name: familyNameSchema.optional(),
+  timezone: timezoneSchema.optional(),
+});
+
+export const familyUpdateSchema = z.object({
+  name: familyNameSchema.optional(),
+  timezone: timezoneSchema.optional(),
+});
+
+export const profileNameSchema = z
+  .string()
+  .trim()
+  .min(1, "יש להזין שם")
+  .max(20, "השם ארוך מדי (עד 20 תווים)");
+
+export const themeColorSchema = z.enum([
+  "lavender",
+  "light-pink",
+  "pink",
+  "light-blue",
+  "sky-blue",
+]);
+
+export const profileCreateSchema = z.object({
+  name: profileNameSchema,
+  avatar: z.string().max(8).nullable().optional(),
+  themeColor: themeColorSchema.default("lavender"),
+});
+
+export const profileUpdateSchema = z.object({
+  profileId: firestoreIdSchema,
+  name: profileNameSchema.optional(),
+  avatar: z.string().max(8).nullable().optional(),
+  themeColor: themeColorSchema.optional(),
+});
+
+export const profileDeleteSchema = z.object({
+  profileId: firestoreIdSchema,
+});
+
+export const passwordSchema = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, `לפחות ${PASSWORD_MIN_LENGTH} תווים`)
+  .max(PASSWORD_MAX_LENGTH, "הסיסמה ארוכה מדי");
+
+export const listNameSchema = z
+  .string()
+  .trim()
+  .min(1, "יש להזין שם לרשימה")
+  .max(40, "שם הרשימה ארוך מדי");
+
+export const resetTypeSchema = z.enum(["daily", "weekly", "never"]);
+
+export const resetTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "פורמט שעה לא תקין (HH:mm)");
+
+export const weeklyResetDaySchema = z.number().int().min(0).max(6);
+
+function requiresWeeklyResetDay(data: { resetType?: string; weeklyResetDay?: number }) {
+  return data.resetType !== "weekly" || data.weeklyResetDay !== undefined;
+}
+
+export const listCreateSchema = z
+  .object({
+    profileId: firestoreIdSchema,
+    name: listNameSchema,
+    resetType: resetTypeSchema,
+    resetTime: resetTimeSchema.optional(),
+    weeklyResetDay: weeklyResetDaySchema.optional(),
+    timezone: timezoneSchema.optional(),
+  })
+  .refine(requiresWeeklyResetDay, {
+    message: "יש לבחור יום בשבוע לאיפוס",
+    path: ["weeklyResetDay"],
+  });
+
+export const listUpdateSchema = z
+  .object({
+    profileId: firestoreIdSchema,
+    listId: firestoreIdSchema,
+    name: listNameSchema.optional(),
+    resetType: resetTypeSchema.optional(),
+    resetTime: resetTimeSchema.optional(),
+    weeklyResetDay: weeklyResetDaySchema.optional(),
+    timezone: timezoneSchema.optional(),
+  })
+  .refine(requiresWeeklyResetDay, {
+    message: "יש לבחור יום בשבוע לאיפוס",
+    path: ["weeklyResetDay"],
+  });
+
+export const listDeleteSchema = z.object({
+  profileId: firestoreIdSchema,
+  listId: firestoreIdSchema,
+});
+
+export const taskTitleSchema = z
+  .string()
+  .trim()
+  .min(1, "יש להזין שם למשימה")
+  .max(60, "שם המשימה ארוך מדי");
+
+export const imageKeySchema = z.enum(GENERIC_TASK_IMAGE_KEYS);
+
+export const taskCreateSchema = z.object({
+  profileId: firestoreIdSchema,
+  listId: firestoreIdSchema,
+  title: taskTitleSchema,
+  imageKey: imageKeySchema.default("generic"),
+});
+
+export const taskUpdateSchema = z.object({
+  profileId: firestoreIdSchema,
+  listId: firestoreIdSchema,
+  taskId: firestoreIdSchema,
+  title: taskTitleSchema.optional(),
+  imageKey: imageKeySchema.optional(),
+});
+
+export const taskDeleteSchema = z.object({
+  profileId: firestoreIdSchema,
+  listId: firestoreIdSchema,
+  taskId: firestoreIdSchema,
+});
+
+export const taskToggleCompletionSchema = z.object({
+  profileId: firestoreIdSchema,
+  listId: firestoreIdSchema,
+  taskId: firestoreIdSchema,
+});
+
+export const listCheckResetSchema = z.object({
+  profileId: firestoreIdSchema,
+  listId: firestoreIdSchema,
+});
+
+// --- Backup export/import (specification §27) ---
+
+const isoDateSchema = z
+  .string()
+  .refine((value) => !Number.isNaN(Date.parse(value)), { message: "תאריך לא תקין" });
+
+const isoDateNullableSchema = isoDateSchema.nullable();
+
+export const backupProfileSchema = z.object({
+  id: firestoreIdSchema,
+  name: profileNameSchema,
+  avatar: z.string().max(8).nullable(),
+  themeColor: themeColorSchema,
+  displayOrder: z.number().int().min(0),
+  isDeleted: z.boolean(),
+  deletedAt: isoDateNullableSchema,
+  createdAt: isoDateSchema,
+  updatedAt: isoDateSchema,
+});
+
+export const backupListSchema = z.object({
+  id: firestoreIdSchema,
+  profileId: firestoreIdSchema,
+  name: listNameSchema,
+  resetType: resetTypeSchema,
+  resetTime: resetTimeSchema.nullable(),
+  weeklyResetDay: weeklyResetDaySchema.nullable(),
+  timezone: timezoneSchema,
+  nextResetAt: isoDateNullableSchema,
+  lastResetAt: isoDateNullableSchema,
+  currentCycle: z.number().int().min(1),
+  taskCount: z.number().int().min(0),
+  completedCount: z.number().int().min(0),
+  celebrationCycle: z.number().int().min(1).nullable(),
+  displayOrder: z.number().int().min(0),
+  isDeleted: z.boolean(),
+  deletedAt: isoDateNullableSchema,
+  createdAt: isoDateSchema,
+  updatedAt: isoDateSchema,
+});
+
+export const backupTaskSchema = z.object({
+  id: firestoreIdSchema,
+  listId: firestoreIdSchema,
+  title: taskTitleSchema,
+  imageKey: imageKeySchema,
+  completedCycle: z.number().int().min(1).nullable(),
+  displayOrder: z.number().int().min(0),
+  isDeleted: z.boolean(),
+  deletedAt: isoDateNullableSchema,
+  createdAt: isoDateSchema,
+  updatedAt: isoDateSchema,
+});
+
+export const backupExportSchema = z.object({
+  schemaVersion: z.number().int(),
+  exportedAt: isoDateSchema,
+  family: z.object({
+    name: z.string().max(40),
+    timezone: z.string().max(100),
+  }),
+  profiles: z.array(backupProfileSchema).max(200),
+  lists: z.array(backupListSchema).max(2000),
+  tasks: z.array(backupTaskSchema).max(20000),
+});
+
+export type BackupExport = z.infer<typeof backupExportSchema>;

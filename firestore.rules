@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// Listy — final architecture (see specification §25 "Firestore Security
+// Rules"). An authenticated browser session may only READ its own
+// family's documents; the authenticated Firebase UID is the familyId.
+// All writes are denied at this layer — every mutation goes through
+// trusted Next.js Route Handlers using the Firebase Admin SDK, which
+// bypasses these rules and performs its own ownership checks
+// (see lib/firebase/verify-token.ts and app/api/**/route.ts).
+//
+// Do not weaken this to `allow read, write: if true` — even for local
+// development. Use the Firebase Emulator Suite for local testing instead.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /families/{familyId} {
+      allow read: if request.auth != null && request.auth.uid == familyId;
+      allow write: if false;
+
+      match /{document=**} {
+        allow read: if request.auth != null && request.auth.uid == familyId;
+        allow write: if false;
+      }
+    }
+
+    // No other top-level collection is exposed to the browser.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
