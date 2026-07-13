@@ -25,7 +25,12 @@ export function SignInForm() {
 
     try {
       await signInWithEmailAndPassword(firebaseAuth, email, password);
-      await callApi("/api/family/bootstrap", { body: {} });
+      const bootstrapResponse = await callApi("/api/family/bootstrap", { body: {} });
+      if (!bootstrapResponse.ok) {
+        setError("ההתחברות הצליחה, אך טעינת נתוני המשפחה נכשלה. נסו שוב.");
+        setSubmitting(false);
+        return;
+      }
       router.push("/profiles");
     } catch (err) {
       setError(firebaseAuthErrorMessage(err));

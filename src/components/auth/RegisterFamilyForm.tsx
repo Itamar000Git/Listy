@@ -45,9 +45,14 @@ export function RegisterFamilyForm() {
       // email fails to send (specification §7.8).
       sendEmailVerification(credential.user, getAuthActionCodeSettings()).catch(() => {});
 
-      await callApi("/api/family/bootstrap", {
+      const bootstrapResponse = await callApi("/api/family/bootstrap", {
         body: { name: familyName || undefined, timezone: DEFAULT_TIMEZONE },
       });
+      if (!bootstrapResponse.ok) {
+        setError("החשבון נוצר, אך אתחול המשפחה נכשל. נסו להתחבר שוב כדי לנסות פעם נוספת.");
+        setSubmitting(false);
+        return;
+      }
 
       router.push("/profiles/new");
     } catch (err) {

@@ -7,6 +7,7 @@ import { MobileAppShell } from "@/components/shell/MobileAppShell";
 import { MobileHeader } from "@/components/shell/MobileHeader";
 import { ProfileForm, type ProfileFormValues } from "@/components/profiles/ProfileForm";
 import { callApi } from "@/lib/auth/get-auth-header";
+import { errorMessageForStatus } from "@/lib/api/error-messages";
 
 function CreateProfileScreen() {
   const router = useRouter();
@@ -20,7 +21,7 @@ function CreateProfileScreen() {
     try {
       const response = await callApi("/api/profiles/create", { body: values });
       if (!response.ok) {
-        setError("לא ניתן היה ליצור את המשתמש. נסו שוב.");
+        setError(errorMessageForStatus(response.status));
         setSubmitting(false);
         return;
       }
