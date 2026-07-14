@@ -164,7 +164,10 @@ function TaskBoardScreen() {
         <StickyListActions
           taskCount={taskCount}
           completedCount={completedCount}
-          onFinish={() => router.push(`/profiles/${profileId}`)}
+          onFinish={() => {
+            soundManager.playListCompleted();
+            router.push(`/profiles/${profileId}`);
+          }}
           onExitWithoutFinishing={() => router.push(`/profiles/${profileId}`)}
         />
       }

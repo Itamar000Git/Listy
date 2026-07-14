@@ -1,21 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
 import { HeartExplosion } from "@/components/celebration/HeartExplosion";
-import { soundManager } from "@/lib/audio/sound-manager";
 
 /**
- * Orchestrates the full-list celebration (specification §13-14). The
- * "once per cycle" guarantee is enforced server-side — this component
- * only renders when the caller has already observed
+ * Orchestrates the full-list celebration visuals (specification §13-14).
+ * The "once per cycle" guarantee is enforced server-side — this
+ * component only renders when the caller has already observed
  * `celebrationTriggered: true` from the toggle-completion API response,
  * so it never needs its own replay-tracking logic.
+ *
+ * The end-of-list sound is deliberately NOT played here — it plays only
+ * when the user presses "סיימתי את המשימות" (see StickyListActions'
+ * onFinish), not automatically when the last task is ticked off.
  */
 export function VictoryOverlay({ onDismiss }: { onDismiss: () => void }) {
-  useEffect(() => {
-    soundManager.playListCompleted();
-  }, []);
-
   return (
     <>
       <HeartExplosion onDone={onDismiss} />
