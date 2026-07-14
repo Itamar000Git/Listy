@@ -3,26 +3,57 @@
 import { useEffect, useRef, useState } from "react";
 import { usePrefersReducedMotion } from "@/lib/use-prefers-reduced-motion";
 
-const BUNNY_SRC = "/images/brand/listy-bunny.png";
-const CARROT_SRC = "/images/brand/listy-carrot.png";
+const IDLE_SRC = "/images/brand/listy-bunny_2_trimmed.png";
+const BITE_SRC = "/images/brand/listy-bunny_bite_trimmed.png";
+const CARROT_SRC = "/images/brand/listy-carrot_2_trimmed.png";
 
-// Native asset dimensions (see public/images/brand) — used only to size
-// the elements before CSS transforms are applied, never edited.
-const BUNNY_NATIVE_SIZE = 1280;
-const CARROT_NATIVE_WIDTH = 620;
-const CARROT_NATIVE_HEIGHT = 800;
+// Native pixel dimensions of the trimmed derivative assets (see
+// public/images/brand — *_trimmed.png files are alpha-trimmed copies of
+// the approved listy-bunny_2.png / listy-bunny_bite.png /
+// listy-carrot_2.png, transparent-padding removed only, never resized
+// or distorted).
+const IDLE_NATIVE_W = 809;
+const IDLE_NATIVE_H = 1343;
+const BITE_NATIVE_W = 1192;
+const BITE_NATIVE_H = 1328;
+const CARROT_NATIVE_W = 2339;
+const CARROT_NATIVE_H = 888;
 
-const STAGE_HEIGHT_PX = 72;
-const STAGE_WIDTH_PX = 200;
+// The idle and bite source photos are not framed identically (different
+// canvas content, different mouth/paw position), so they can't share a
+// single top/left. These fractional anchors were located by rendering
+// each trimmed asset with a movable marker and reading off where the
+// mouth (idle) / bite point (bite) actually falls, then locked in here.
+const IDLE_MOUTH_FRACTION = { x: 0.6, y: 0.4 };
+const BITE_MOUTH_FRACTION = { x: 0.48, y: 0.42 };
 
-// The source carrot artwork is drawn on a diagonal (pointed tip toward
-// the bottom-left, leaves toward the top-right). These transform values
-// were tuned by visually rendering the composition (rotate the diagonal
-// down to horizontal, tip-left/leaves-right, then scale+nudge to fill
-// the stage). Adjust together if the source asset ever changes.
-const CARROT_ROTATE_DEG = 60;
-const CARROT_SCALE = 0.26;
-const CARROT_OFFSET_X_PX = -6;
+// Display geometry, tuned by rendering the composition at 320–430px and
+// checking visually: a compact bunny "stage" box (bunny always anchored
+// at its own mouth point regardless of which frame is showing) sitting
+// directly beside a clipped carrot, with the carrot's vertical center
+// aligned to the bunny's mouth height.
+const BUNNY_BOX_W = 70;
+const BUNNY_BOX_H = 110;
+const CARROT_GAP = 2;
+const CARROT_BOX_H = 76;
+const CARROT_BOX_W = Math.round(CARROT_BOX_H * (CARROT_NATIVE_W / CARROT_NATIVE_H));
+
+const BUNNY_SCALE = BUNNY_BOX_H / IDLE_NATIVE_H;
+const IDLE_RENDER_W = IDLE_NATIVE_W * BUNNY_SCALE;
+const BITE_RENDER_W = BITE_NATIVE_W * BUNNY_SCALE;
+const BITE_RENDER_H = BITE_NATIVE_H * BUNNY_SCALE;
+
+// Idle sits flush at the box's top-left; that fixes the shared anchor
+// point every other frame must line up with.
+const ANCHOR_X = IDLE_RENDER_W * IDLE_MOUTH_FRACTION.x;
+const ANCHOR_Y = BUNNY_BOX_H * IDLE_MOUTH_FRACTION.y;
+const BITE_OFFSET_X = ANCHOR_X - BITE_RENDER_W * BITE_MOUTH_FRACTION.x;
+const BITE_OFFSET_Y = ANCHOR_Y - BITE_RENDER_H * BITE_MOUTH_FRACTION.y;
+
+const CARROT_LEFT = BUNNY_BOX_W + CARROT_GAP;
+const CARROT_TOP = ANCHOR_Y - CARROT_BOX_H / 2;
+const STAGE_WIDTH = CARROT_LEFT + CARROT_BOX_W;
+const STAGE_HEIGHT = Math.max(BUNNY_BOX_H, CARROT_TOP + CARROT_BOX_H);
 
 const BITE_DURATION_MS = 350;
 
@@ -47,7 +78,7 @@ export type BunnyCarrotProgressProps = {
    * Any other change — marking a task incomplete, a failed/offline
    * mutation, the initial Firestore snapshot on mount, or a remote
    * device's update arriving over the listener — must NOT bump this,
-   * so the bite animation only plays for an action this device just
+   * so the bite frame only shows for an action this device just
    * confirmed, never for historical or remote progress.
    */
   completionEventId: number | string;
@@ -102,20 +133,51 @@ export function BunnyCarrotProgress({
     <div
       aria-hidden="true"
       dir="ltr"
-      className="mx-auto flex items-center justify-center overflow-hidden"
-      style={{ width: STAGE_WIDTH_PX, height: STAGE_HEIGHT_PX }}
+      className="relative mx-auto"
+      style={{ width: STAGE_WIDTH, height: STAGE_HEIGHT }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- tiny bundled static brand image */}
-      <img
-        src={BUNNY_SRC}
-        alt=""
-        width={BUNNY_NATIVE_SIZE}
-        height={BUNNY_NATIVE_SIZE}
-        className={["shrink-0 object-contain", biting ? "animate-bunny-bite" : ""].join(" ")}
-        style={{ height: STAGE_HEIGHT_PX, width: STAGE_HEIGHT_PX }}
-      />
+      <div
+        className={["absolute left-0 top-0 overflow-hidden", biting ? "animate-bunny-bite-pulse" : ""].join(
+          " ",
+        )}
+        style={{ width: BUNNY_BOX_W, height: BUNNY_BOX_H }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- tiny bundled static brand image */}
+        <img
+          src={IDLE_SRC}
+          alt=""
+          width={IDLE_NATIVE_W}
+          height={IDLE_NATIVE_H}
+          className="absolute"
+          style={{
+            width: IDLE_RENDER_W,
+            height: BUNNY_BOX_H,
+            left: 0,
+            top: 0,
+            opacity: biting ? 0 : 1,
+          }}
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element -- tiny bundled static brand image */}
+        <img
+          src={BITE_SRC}
+          alt=""
+          width={BITE_NATIVE_W}
+          height={BITE_NATIVE_H}
+          className="absolute"
+          style={{
+            width: BITE_RENDER_W,
+            height: BITE_RENDER_H,
+            left: BITE_OFFSET_X,
+            top: BITE_OFFSET_Y,
+            opacity: biting ? 1 : 0,
+          }}
+        />
+      </div>
 
-      <div className="relative h-full flex-1 overflow-hidden">
+      <div
+        className="absolute overflow-hidden"
+        style={{ left: CARROT_LEFT, top: CARROT_TOP, width: CARROT_BOX_W, height: CARROT_BOX_H }}
+      >
         <div
           className="absolute inset-0"
           style={{
@@ -123,20 +185,14 @@ export function BunnyCarrotProgress({
             transition: prefersReducedMotion ? "none" : "clip-path 400ms ease",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- tiny bundled static brand image, positioned via CSS transform */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- tiny bundled static brand image */}
           <img
             src={CARROT_SRC}
             alt=""
-            width={CARROT_NATIVE_WIDTH}
-            height={CARROT_NATIVE_HEIGHT}
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              width: CARROT_NATIVE_WIDTH,
-              height: CARROT_NATIVE_HEIGHT,
-              transform: `translate(-50%, -50%) translate(${CARROT_OFFSET_X_PX}px, 0px) rotate(${CARROT_ROTATE_DEG}deg) scale(${CARROT_SCALE})`,
-            }}
+            width={CARROT_NATIVE_W}
+            height={CARROT_NATIVE_H}
+            className="absolute left-0 top-0"
+            style={{ width: CARROT_BOX_W, height: CARROT_BOX_H }}
           />
         </div>
       </div>

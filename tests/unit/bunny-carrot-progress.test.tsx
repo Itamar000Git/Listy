@@ -22,13 +22,28 @@ function getRoot(container: HTMLElement) {
   return container.querySelector('[aria-hidden="true"][dir="ltr"]') as HTMLElement | null;
 }
 
-function getBunnyImg(container: HTMLElement) {
-  return container.querySelector("img") as HTMLImageElement | null;
+function getIdleImg(container: HTMLElement) {
+  return container.querySelector('img[src*="listy-bunny_2_trimmed"]') as HTMLImageElement | null;
+}
+
+function getBiteImg(container: HTMLElement) {
+  return container.querySelector('img[src*="listy-bunny_bite_trimmed"]') as HTMLImageElement | null;
+}
+
+function getBunnyBox(container: HTMLElement) {
+  // The bunny box is the direct wrapper around both the idle/bite <img>s.
+  return getIdleImg(container)?.parentElement ?? null;
+}
+
+function isBiting(container: HTMLElement) {
+  const idle = getIdleImg(container);
+  const bite = getBiteImg(container);
+  return idle?.style.opacity === "0" && bite?.style.opacity === "1";
 }
 
 function getClipDiv(container: HTMLElement) {
   // The clip wrapper is the div carrying the clip-path style, nested
-  // inside the flex-1 overflow-hidden wrapper.
+  // inside the carrot box.
   return container.querySelector('.absolute.inset-0[style*="clip"]') as HTMLElement | null;
 }
 
@@ -60,13 +75,17 @@ describe("computeRemainingCarrotRatio", () => {
 });
 
 describe("BunnyCarrotProgress — assets and rendering", () => {
-  it("uses the exact approved asset paths", () => {
+  it("uses the exact approved asset paths (the new listy-bunny_2 / listy-bunny_bite / listy-carrot_2 trimmed derivatives)", () => {
     const { container } = render(
       <BunnyCarrotProgress taskCount={4} completedCount={0} completionEventId={0} />,
     );
     const imgs = Array.from(container.querySelectorAll("img")).map((img) => img.getAttribute("src"));
-    expect(imgs).toContain("/images/brand/listy-bunny.png");
-    expect(imgs).toContain("/images/brand/listy-carrot.png");
+    expect(imgs).toContain("/images/brand/listy-bunny_2_trimmed.png");
+    expect(imgs).toContain("/images/brand/listy-bunny_bite_trimmed.png");
+    expect(imgs).toContain("/images/brand/listy-carrot_2_trimmed.png");
+    // Never the old, superseded assets.
+    expect(imgs).not.toContain("/images/brand/listy-bunny.png");
+    expect(imgs).not.toContain("/images/brand/listy-carrot.png");
   });
 
   it("renders nothing for taskCount === 0 (no invalid CSS, no crash)", () => {
@@ -109,6 +128,21 @@ describe("BunnyCarrotProgress — assets and rendering", () => {
     expect(clip?.style.clipPath).toContain("100%");
   });
 
+  it("never resizes the carrot image itself (fixed width/height matching its aspect ratio, only the clip window changes)", () => {
+    const { container, rerender } = render(
+      <BunnyCarrotProgress taskCount={4} completedCount={0} completionEventId={0} />,
+    );
+    const carrotImg = container.querySelector(
+      'img[src*="listy-carrot_2_trimmed"]',
+    ) as HTMLImageElement;
+    const widthBefore = carrotImg.style.width;
+    const heightBefore = carrotImg.style.height;
+
+    rerender(<BunnyCarrotProgress taskCount={4} completedCount={2} completionEventId={0} />);
+    expect(carrotImg.style.width).toBe(widthBefore);
+    expect(carrotImg.style.height).toBe(heightBefore);
+  });
+
   it("keeps rendering the composition alongside — the numeric progress is a separate sibling and is untouched", () => {
     const { container } = render(
       <>
@@ -122,29 +156,30 @@ describe("BunnyCarrotProgress — assets and rendering", () => {
 });
 
 describe("BunnyCarrotProgress — bite animation triggering", () => {
-  it("does not bite on initial mount, even with a non-zero starting completionEventId", () => {
+  it("shows the idle frame (not the bite frame) on initial mount, even with a non-zero starting completionEventId", () => {
     const { container } = render(
       <BunnyCarrotProgress taskCount={4} completedCount={2} completionEventId={7} />,
     );
-    const bunny = getBunnyImg(container);
-    expect(bunny?.className).not.toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(false);
+    expect(getBunnyBox(container)?.className).not.toContain("animate-bunny-bite-pulse");
   });
 
-  it("triggers exactly one bite when completionEventId changes (a confirmed new completion)", () => {
+  it("triggers exactly one bite (swaps to the bite frame) when completionEventId changes (a confirmed new completion)", () => {
     vi.useFakeTimers();
     const { container, rerender } = render(
       <BunnyCarrotProgress taskCount={4} completedCount={0} completionEventId={0} />,
     );
-    expect(getBunnyImg(container)?.className).not.toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(false);
 
     rerender(<BunnyCarrotProgress taskCount={4} completedCount={1} completionEventId={1} />);
-    expect(getBunnyImg(container)?.className).toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(true);
+    expect(getBunnyBox(container)?.className).toContain("animate-bunny-bite-pulse");
 
-    // Bite clears itself after its duration.
+    // Bite clears itself after its duration, reverting to the idle frame.
     act(() => {
       vi.advanceTimersByTime(400);
     });
-    expect(getBunnyImg(container)?.className).not.toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(false);
   });
 
   it("does not bite when completedCount changes but completionEventId does not (marking a task incomplete)", () => {
@@ -156,7 +191,7 @@ describe("BunnyCarrotProgress — bite animation triggering", () => {
     // Task marked incomplete: completedCount drops, completionEventId is
     // untouched by the caller (see the prop's contract).
     rerender(<BunnyCarrotProgress taskCount={4} completedCount={1} completionEventId={3} />);
-    expect(getBunnyImg(container)?.className).not.toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(false);
   });
 
   it("restores the correct carrot portion when a task is marked incomplete, without a bite", () => {
@@ -167,7 +202,7 @@ describe("BunnyCarrotProgress — bite animation triggering", () => {
 
     rerender(<BunnyCarrotProgress taskCount={4} completedCount={1} completionEventId={3} />);
     expect(getClipDiv(container)?.style.clipPath).toContain("25%");
-    expect(getBunnyImg(container)?.className).not.toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(false);
   });
 
   it("does not bite or change the carrot when props are unchanged (failed/offline mutation — caller never updates props)", () => {
@@ -178,7 +213,7 @@ describe("BunnyCarrotProgress — bite animation triggering", () => {
 
     rerender(<BunnyCarrotProgress taskCount={4} completedCount={1} completionEventId={2} />);
     expect(getClipDiv(container)?.style.clipPath).toBe(before);
-    expect(getBunnyImg(container)?.className).not.toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(false);
   });
 
   it("re-triggers a new bite when a task is completed again after being uncompleted", () => {
@@ -188,10 +223,10 @@ describe("BunnyCarrotProgress — bite animation triggering", () => {
     );
 
     rerender(<BunnyCarrotProgress taskCount={4} completedCount={1} completionEventId={3} />);
-    expect(getBunnyImg(container)?.className).not.toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(false);
 
     rerender(<BunnyCarrotProgress taskCount={4} completedCount={2} completionEventId={4} />);
-    expect(getBunnyImg(container)?.className).toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(true);
   });
 
   it("cleans up its bite timeout on unmount without throwing", () => {
@@ -200,7 +235,7 @@ describe("BunnyCarrotProgress — bite animation triggering", () => {
       <BunnyCarrotProgress taskCount={4} completedCount={0} completionEventId={0} />,
     );
     rerender(<BunnyCarrotProgress taskCount={4} completedCount={1} completionEventId={1} />);
-    expect(getBunnyImg(container)?.className).toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(true);
 
     expect(() => unmount()).not.toThrow();
     expect(() => vi.advanceTimersByTime(1000)).not.toThrow();
@@ -208,7 +243,7 @@ describe("BunnyCarrotProgress — bite animation triggering", () => {
 });
 
 describe("BunnyCarrotProgress — reduced motion", () => {
-  it("never adds the bite class when reduced motion is enabled, even on a confirmed new completion", () => {
+  it("never swaps to the bite frame or pulses when reduced motion is enabled, even on a confirmed new completion", () => {
     usePrefersReducedMotion.mockReturnValue(true);
     vi.useFakeTimers();
     const { container, rerender } = render(
@@ -219,7 +254,8 @@ describe("BunnyCarrotProgress — reduced motion", () => {
     act(() => {
       vi.advanceTimersByTime(400);
     });
-    expect(getBunnyImg(container)?.className).not.toContain("animate-bunny-bite");
+    expect(isBiting(container)).toBe(false);
+    expect(getBunnyBox(container)?.className).not.toContain("animate-bunny-bite-pulse");
   });
 
   it("still updates the visible carrot amount under reduced motion, just without an animated transition", () => {

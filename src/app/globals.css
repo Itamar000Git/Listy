@@ -72,15 +72,15 @@ body {
   }
 }
 
-@keyframes bunny-bite {
+@keyframes bunny-bite-pulse {
   0% {
-    transform: translateX(0) scale(1);
+    transform: scale(1);
   }
   40% {
-    transform: translateX(6px) scale(1.06);
+    transform: scale(1.08);
   }
   100% {
-    transform: translateX(0) scale(1);
+    transform: scale(1);
   }
 }
 
@@ -108,8 +108,8 @@ body {
   animation: heart-fly-out 1.1s ease-out forwards;
 }
 
-.animate-bunny-bite {
-  animation: bunny-bite 350ms ease-out;
+.animate-bunny-bite-pulse {
+  animation: bunny-bite-pulse 350ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
