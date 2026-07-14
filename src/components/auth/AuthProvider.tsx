@@ -42,6 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentUser = firebaseAuth.currentUser;
     if (!currentUser) return;
     await currentUser.reload();
+    // A verified email changes claims on the ID token, so force a fresh
+    // one rather than letting a stale cached token linger for its
+    // remaining lifetime.
+    await currentUser.getIdToken(true);
     setEmailVerified(firebaseAuth.currentUser?.emailVerified ?? false);
   }, []);
 

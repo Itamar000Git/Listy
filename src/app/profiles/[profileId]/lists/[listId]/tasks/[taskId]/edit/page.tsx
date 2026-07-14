@@ -81,6 +81,7 @@ function EditTaskScreen() {
         <TaskForm
           initialValues={{
             title: task.title,
+            description: task.description ?? "",
             imageKey: isGenericTaskImageKey(task.imageKey) ? task.imageKey : "generic",
           }}
           submitLabel="שמירה"

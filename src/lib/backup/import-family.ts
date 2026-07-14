@@ -125,6 +125,7 @@ export async function importFamilyBackup(
 
     queueSet(newTaskRef, {
       title: task.title,
+      description: task.description ?? null,
       imageKey: task.imageKey,
       completedCycle: task.completedCycle,
       displayOrder: task.displayOrder,

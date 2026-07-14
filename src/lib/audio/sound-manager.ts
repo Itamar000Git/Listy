@@ -2,16 +2,11 @@ import "client-only";
 
 const MUTE_STORAGE_KEY = "listy:sound-muted";
 
-/**
- * Placeholder audio — synthesized tones under /public/audio, not real
- * applause/crowd/trumpet recordings. Swap for licensed royalty-free
- * assets before real use; the playback mechanics below don't change.
- */
-const APPLAUSE_SRC = "/audio/applause.mp3";
-const CELEBRATION_SRC = "/audio/celebration.mp3";
+const MARK_TASK_SRC = "/audio/mark_task.mp3";
+const END_LIST_SRC = "/audio/end_list.mp3";
 
-let applauseEl: HTMLAudioElement | null = null;
-let celebrationEl: HTMLAudioElement | null = null;
+let markTaskEl: HTMLAudioElement | null = null;
+let endListEl: HTMLAudioElement | null = null;
 let unlocked = false;
 
 function readMutedPreference(): boolean {
@@ -26,13 +21,13 @@ let muted = typeof window !== "undefined" ? readMutedPreference() : false;
 
 function ensureElements() {
   if (typeof window === "undefined") return;
-  if (!applauseEl) {
-    applauseEl = new Audio(APPLAUSE_SRC);
-    applauseEl.preload = "auto";
+  if (!markTaskEl) {
+    markTaskEl = new Audio(MARK_TASK_SRC);
+    markTaskEl.preload = "auto";
   }
-  if (!celebrationEl) {
-    celebrationEl = new Audio(CELEBRATION_SRC);
-    celebrationEl.preload = "auto";
+  if (!endListEl) {
+    endListEl = new Audio(END_LIST_SRC);
+    endListEl.preload = "auto";
   }
 }
 
@@ -48,7 +43,7 @@ function unlock() {
   unlocked = true;
   ensureElements();
 
-  for (const el of [applauseEl, celebrationEl]) {
+  for (const el of [markTaskEl, endListEl]) {
     if (!el) continue;
     const playPromise = el.play();
     if (playPromise && typeof playPromise.then === "function") {
@@ -95,13 +90,15 @@ function play(el: HTMLAudioElement | null) {
 }
 
 export const soundManager = {
-  playApplause() {
+  /** Plays when an individual task is marked as completed. */
+  playTaskCompleted() {
     ensureElements();
-    play(applauseEl);
+    play(markTaskEl);
   },
-  playCelebration() {
+  /** Plays once when the entire list is completed and the celebration triggers. */
+  playListCompleted() {
     ensureElements();
-    play(celebrationEl);
+    play(endListEl);
   },
   isMuted(): boolean {
     return muted;

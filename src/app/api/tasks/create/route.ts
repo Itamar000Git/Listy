@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   }
 
   const { profileId, listId, title, imageKey } = parsed.data;
+  const description = parsed.data.description ?? null;
   const profileRef = adminFirestore.doc(profilePath(familyId, profileId));
   const listRef = adminFirestore.doc(listPath(familyId, profileId, listId));
   const taskRef = adminFirestore.collection(tasksCollectionPath(familyId, profileId, listId)).doc();
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
 
       transaction.create(taskRef, {
         title,
+        description,
         imageKey,
         completedCycle: null,
         displayOrder,
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
 
     return Response.json({
       ok: true,
-      task: { id: taskRef.id, title, imageKey, displayOrder: result.displayOrder },
+      task: { id: taskRef.id, title, description, imageKey, displayOrder: result.displayOrder },
     });
   } catch {
     return internalError();

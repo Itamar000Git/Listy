@@ -82,6 +82,7 @@ export async function buildFamilyExport(familyId: string) {
           id: taskDoc.id,
           listId: listDoc.id,
           title: t.title,
+          description: t.description ?? null,
           imageKey: t.imageKey,
           completedCycle: t.completedCycle ?? null,
           displayOrder: t.displayOrder ?? 0,

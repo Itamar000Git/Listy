@@ -147,10 +147,27 @@ export const taskTitleSchema = z
 
 export const imageKeySchema = z.enum(GENERIC_TASK_IMAGE_KEYS);
 
+/**
+ * Optional free-text task instructions. Trimmed, capped at 500
+ * characters, and normalized so an empty/whitespace-only value is
+ * stored as `null` rather than an empty string. `.nullable().optional()`
+ * lets callers distinguish "field omitted — leave unchanged" (undefined,
+ * relevant for updates) from "explicitly cleared" (null) from "set"
+ * (a non-empty string) — a non-string, non-null value is rejected.
+ */
+export const taskDescriptionSchema = z
+  .string()
+  .transform((value) => value.trim())
+  .refine((value) => value.length <= 500, "התיאור ארוך מדי (עד 500 תווים)")
+  .transform((value) => (value.length === 0 ? null : value))
+  .nullable()
+  .optional();
+
 export const taskCreateSchema = z.object({
   profileId: firestoreIdSchema,
   listId: firestoreIdSchema,
   title: taskTitleSchema,
+  description: taskDescriptionSchema,
   imageKey: imageKeySchema.default("generic"),
 });
 
@@ -159,6 +176,7 @@ export const taskUpdateSchema = z.object({
   listId: firestoreIdSchema,
   taskId: firestoreIdSchema,
   title: taskTitleSchema.optional(),
+  description: taskDescriptionSchema,
   imageKey: imageKeySchema.optional(),
 });
 
@@ -224,6 +242,10 @@ export const backupTaskSchema = z.object({
   id: firestoreIdSchema,
   listId: firestoreIdSchema,
   title: taskTitleSchema,
+  // Optional so backups exported before this field existed still
+  // validate — an absent value normalizes to null on import, same as a
+  // task document that predates the feature (see TaskDocument).
+  description: taskDescriptionSchema,
   imageKey: imageKeySchema,
   completedCycle: z.number().int().min(1).nullable(),
   displayOrder: z.number().int().min(0),

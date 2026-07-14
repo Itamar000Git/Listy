@@ -13,7 +13,7 @@ import { soundManager } from "@/lib/audio/sound-manager";
  */
 export function VictoryOverlay({ onDismiss }: { onDismiss: () => void }) {
   useEffect(() => {
-    soundManager.playCelebration();
+    soundManager.playListCompleted();
   }, []);
 
   return (

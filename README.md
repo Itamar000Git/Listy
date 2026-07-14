@@ -44,19 +44,19 @@ npm run test:rules    # Firestore Rules simulator tests — requires Java
                        # the top of tests/security/firestore-rules.test.ts
 ```
 
-## Audio assets — currently placeholders
+## Audio assets
 
-`/public/audio/applause.mp3` and `/public/audio/celebration.mp3` are
-**synthesized placeholder tones** (filtered noise + a sine-tone
-arpeggio, generated with `ffmpeg`) — **not** real applause, crowd, or
-trumpet recordings. No audio was downloaded or sourced from any
-copyrighted material.
+`/public/audio/mark_task.mp3` plays when an individual task is marked
+completed; `/public/audio/end_list.mp3` plays once when the whole list
+is completed and the celebration triggers. Both are wired up with
+Safari unlock, mute persistence, no-overlap, and fail-silent-on-error
+behavior (`src/lib/audio/sound-manager.ts`). To replace either file,
+overwrite it at the same path — no code changes needed, the filenames
+are the interface.
 
-They're fully wired up (Safari unlock, mute persistence, no-overlap,
-fail-silent-on-error) and functional as stand-ins, but should be
-replaced with real royalty-free audio before a real family uses this
-app. To replace them: **just overwrite the two files at the same
-paths** — no code changes needed, the filenames are the interface.
+(`/public/audio/applause.mp3` and `/public/audio/celebration.mp3` are
+leftover synthesized placeholder tones from an earlier stage and are
+no longer referenced by the app.)
 
 ## Further documentation
 

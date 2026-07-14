@@ -54,7 +54,7 @@ export function RegisterFamilyForm() {
         return;
       }
 
-      router.push("/profiles/new");
+      router.push("/profiles");
     } catch (err) {
       setError(firebaseAuthErrorMessage(err));
       setSubmitting(false);

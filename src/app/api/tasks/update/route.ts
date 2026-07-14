@@ -32,9 +32,9 @@ export async function POST(request: Request) {
     return badRequest("invalid_input");
   }
 
-  const { profileId, listId, taskId, title, imageKey } = parsed.data;
+  const { profileId, listId, taskId, title, description, imageKey } = parsed.data;
 
-  if (title === undefined && imageKey === undefined) {
+  if (title === undefined && description === undefined && imageKey === undefined) {
     return badRequest("no_fields_to_update");
   }
 
@@ -55,6 +55,7 @@ export async function POST(request: Request) {
 
     const updates: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
     if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
     if (imageKey !== undefined) updates.imageKey = imageKey;
 
     await taskRef.update(updates);

@@ -25,6 +25,23 @@ export function EmailVerificationBanner() {
     };
   }, []);
 
+  // Returning to this tab (e.g. after clicking the verification link in
+  // another tab) should re-check status without requiring the manual
+  // "refresh status" button.
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshEmailVerified();
+      }
+    }
+    window.addEventListener("focus", refreshEmailVerified);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refreshEmailVerified);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [refreshEmailVerified]);
+
   if (loading || !user || emailVerified) return null;
 
   async function handleResend() {
@@ -52,7 +69,8 @@ export function EmailVerificationBanner() {
   return (
     <div className="flex flex-col gap-2 border-b border-border bg-light-blue/40 px-4 py-3 text-sm">
       <p className="text-text">
-        כתובת האימייל שלך עדיין לא אומתה. אמתו אותה כדי להבטיח שתוכלו לשחזר את הסיסמה בעתיד.
+        כתובת האימייל שלך עדיין לא אומתה. שלחנו אליך קישור אימות. אם ההודעה לא מופיעה בתיבת
+        הדואר הנכנס, כדאי לבדוק גם בתיקיית הספאם.
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <button

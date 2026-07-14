@@ -108,7 +108,7 @@ function TaskBoardScreen() {
       const data = await response.json();
       setOptimisticOverrides((current) => ({ ...current, [task.id]: data.completed }));
 
-      if (data.completed) soundManager.playApplause();
+      if (data.completed) soundManager.playTaskCompleted();
       if (data.celebrationTriggered) setShowVictory(true);
     } catch {
       setOptimisticOverrides((current) => {
@@ -191,6 +191,7 @@ function TaskBoardScreen() {
                 key={task.id}
                 taskId={task.id}
                 title={task.title}
+                description={task.description}
                 imageKey={task.imageKey}
                 isCompleted={task.effectiveCompleted}
                 isPending={pendingTaskIds.has(task.id) || !isOnline}

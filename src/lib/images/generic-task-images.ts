@@ -20,6 +20,15 @@ export const GENERIC_TASK_IMAGE_KEYS = [
   "reading",
   "exercise",
   "helping-home",
+  "toilet",
+  "ponytail",
+  "hairbrush",
+  "wash-hands",
+  "wash-face",
+  "shoes",
+  "pajamas",
+  "snack",
+  "coat",
 ] as const;
 
 export type GenericTaskImageKey = (typeof GENERIC_TASK_IMAGE_KEYS)[number];
@@ -40,6 +49,15 @@ export const GENERIC_TASK_IMAGE_LABELS_HE: Record<GenericTaskImageKey, string> =
   reading: "קריאה",
   exercise: "פעילות גופנית",
   "helping-home": "עזרה בבית",
+  toilet: "שירותים",
+  ponytail: "קשירת שיער",
+  hairbrush: "סירוק שיער",
+  "wash-hands": "שטיפת ידיים",
+  "wash-face": "שטיפת פנים",
+  shoes: "נעילת נעליים",
+  pajamas: "לבישת פיג'מה",
+  snack: "אכילת חטיף",
+  coat: "לבישת מעיל",
 };
 
 export function isGenericTaskImageKey(value: string): value is GenericTaskImageKey {

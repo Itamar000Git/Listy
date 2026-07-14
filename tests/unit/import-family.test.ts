@@ -73,6 +73,7 @@ function makeBackup() {
         id: "old-task-1",
         listId: "old-list-1",
         title: "משימה א",
+        description: "לצחצח במשך שתי דקות",
         imageKey: "generic" as const,
         completedCycle: 3,
         displayOrder: 0,
@@ -82,6 +83,8 @@ function makeBackup() {
         updatedAt: now,
       },
       // Active, NOT completed in the current cycle → counts toward taskCount only.
+      // No `description` field at all — simulates a backup exported before
+      // the description feature existed.
       {
         id: "old-task-2",
         listId: "old-list-1",
@@ -157,6 +160,22 @@ describe("importFamilyBackup", () => {
       expect(write.path).not.toContain("old-list-1");
       expect(write.path).not.toMatch(/old-task-\d/);
     }
+  });
+
+  it("preserves an imported task's description", async () => {
+    await importFamilyBackup("family-1", makeBackup());
+
+    const taskWrites = writes.filter((w) => w.path.includes("/tasks/"));
+    const withDescription = taskWrites.find((w) => w.data.title === "משימה א");
+    expect(withDescription?.data.description).toBe("לצחצח במשך שתי דקות");
+  });
+
+  it("normalizes a task with no description field (older backup) to null, not undefined", async () => {
+    await importFamilyBackup("family-1", makeBackup());
+
+    const taskWrites = writes.filter((w) => w.path.includes("/tasks/"));
+    const withoutDescription = taskWrites.find((w) => w.data.title === "משימה ב");
+    expect(withoutDescription?.data.description).toBeNull();
   });
 
   it("skips tasks/lists that reference a parent not present in the file (defensive, no crash)", async () => {

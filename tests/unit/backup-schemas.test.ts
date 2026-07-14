@@ -46,6 +46,7 @@ function validBackup() {
         id: "task-1",
         listId: "list-1",
         title: "לצחצח שיניים",
+        description: "לצחצח במשך שתי דקות ולא לשכוח את השיניים האחוריות",
         imageKey: "toothbrush",
         completedCycle: null,
         displayOrder: 0,
@@ -97,6 +98,28 @@ describe("backupExportSchema", () => {
     const backup = validBackup();
     // @ts-expect-error intentionally invalid for the test
     delete backup.family.timezone;
+    expect(backupExportSchema.safeParse(backup).success).toBe(false);
+  });
+
+  it("accepts a task with a description and trims it", () => {
+    const backup = validBackup();
+    backup.tasks[0].description = "  לצחצח היטב  ";
+    const result = backupExportSchema.safeParse(backup);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.tasks[0].description).toBe("לצחצח היטב");
+  });
+
+  it("accepts an older backup task with no description field at all", () => {
+    const backup = validBackup();
+    delete (backup.tasks[0] as { description?: string }).description;
+    const result = backupExportSchema.safeParse(backup);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.tasks[0].description).toBeUndefined();
+  });
+
+  it("rejects an overlong task description", () => {
+    const backup = validBackup();
+    backup.tasks[0].description = "a".repeat(501);
     expect(backupExportSchema.safeParse(backup).success).toBe(false);
   });
 });

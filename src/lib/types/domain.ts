@@ -59,9 +59,15 @@ export type ListWithId = ListDocument & { id: string };
  * families/{familyId}/profiles/{profileId}/lists/{listId}/tasks/{taskId}
  * A task is completed when task.completedCycle === list.currentCycle
  * (specification §17-18) — isCompleted is deliberately not stored.
+ *
+ * `description` is optional free text added after the initial launch;
+ * task documents created before it existed simply lack the field, so
+ * readers treat a missing value the same as `null` rather than
+ * requiring a migration.
  */
 export type TaskDocument = {
   title: string;
+  description: string | null;
   imageKey: string;
   completedCycle: number | null;
   displayOrder: number;

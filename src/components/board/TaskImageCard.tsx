@@ -8,6 +8,7 @@ import { resolveTaskImagePath } from "@/lib/images/generic-task-images";
 export type TaskImageCardProps = {
   taskId: string;
   title: string;
+  description?: string | null;
   imageKey: string;
   isCompleted: boolean;
   isPending: boolean;
@@ -26,6 +27,7 @@ export type TaskImageCardProps = {
  */
 export function TaskImageCard({
   title,
+  description,
   imageKey,
   isCompleted,
   isPending,
@@ -65,6 +67,9 @@ export function TaskImageCard({
         />
 
         <span className="line-clamp-2 text-sm font-bold text-text">{title}</span>
+        {description ? (
+          <span className="line-clamp-2 text-xs text-text-muted">{description}</span>
+        ) : null}
       </button>
 
       <Link
