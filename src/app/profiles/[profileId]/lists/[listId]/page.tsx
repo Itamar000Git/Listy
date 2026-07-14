@@ -10,6 +10,7 @@ import { MobileHeader } from "@/components/shell/MobileHeader";
 import { BulletinBoard } from "@/components/board/BulletinBoard";
 import { TaskImageCard } from "@/components/board/TaskImageCard";
 import { TaskProgress } from "@/components/board/TaskProgress";
+import { BunnyCarrotProgress } from "@/components/board/BunnyCarrotProgress";
 import { VictoryOverlay } from "@/components/celebration/VictoryOverlay";
 import { StickyListActions } from "@/components/actions/StickyListActions";
 import { SoundToggle } from "@/components/settings/SoundToggle";
@@ -38,6 +39,7 @@ function TaskBoardScreen() {
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [showVictory, setShowVictory] = useState(false);
   const [listenerError, setListenerError] = useState(false);
+  const [completionEventId, setCompletionEventId] = useState(0);
   const isOnline = useOnlineStatus();
 
   useEffect(() => {
@@ -108,7 +110,10 @@ function TaskBoardScreen() {
       const data = await response.json();
       setOptimisticOverrides((current) => ({ ...current, [task.id]: data.completed }));
 
-      if (data.completed) soundManager.playTaskCompleted();
+      if (data.completed) {
+        soundManager.playTaskCompleted();
+        setCompletionEventId((current) => current + 1);
+      }
       if (data.celebrationTriggered) setShowVictory(true);
     } catch {
       setOptimisticOverrides((current) => {
@@ -173,6 +178,13 @@ function TaskBoardScreen() {
       }
     >
       <TaskProgress completedCount={completedCount} taskCount={taskCount} />
+      <div className="px-4 pb-2">
+        <BunnyCarrotProgress
+          taskCount={taskCount}
+          completedCount={completedCount}
+          completionEventId={completionEventId}
+        />
+      </div>
 
       {toggleError ? <p className="px-4 text-sm text-danger">{toggleError}</p> : null}
 
