@@ -12,6 +12,7 @@ import { ProfileCard } from "@/components/profiles/ProfileCard";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingState } from "@/components/feedback/LoadingState";
 import { Button } from "@/components/ui/Button";
+import { MusicMenu } from "@/components/music/MusicMenu";
 import { subscribeToActiveProfiles } from "@/lib/firestore/profiles";
 import { setSelectedProfileId } from "@/lib/profile-selection";
 import type { ProfileWithId } from "@/lib/types/domain";
@@ -39,6 +40,7 @@ function ProfileSelectionScreen() {
           title="בחירת משתמש"
           end={
             <>
+              <MusicMenu />
               <Link
                 href="/settings"
                 aria-label="הגדרות"

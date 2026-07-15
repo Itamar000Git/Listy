@@ -270,3 +270,66 @@ describe("BunnyCarrotProgress — reduced motion", () => {
     expect(getClipDiv(container)?.style.transition).toBe("none");
   });
 });
+
+describe("BunnyCarrotProgress — proportional, non-distorting rendering", () => {
+  function aspectRatio(el: HTMLImageElement): number {
+    const w = parseFloat(el.style.width);
+    const h = parseFloat(el.style.height);
+    return w / h;
+  }
+
+  it("renders the idle frame at its native aspect ratio (no stretch/squash)", () => {
+    const { container } = render(
+      <BunnyCarrotProgress taskCount={4} completedCount={0} completionEventId={0} />,
+    );
+    const idle = getIdleImg(container)!;
+    const nativeRatio = Number(idle.getAttribute("width")) / Number(idle.getAttribute("height"));
+    expect(aspectRatio(idle)).toBeCloseTo(nativeRatio, 2);
+  });
+
+  it("renders the bite frame at its own native aspect ratio (no non-uniform scaling)", () => {
+    const { container } = render(
+      <BunnyCarrotProgress taskCount={4} completedCount={0} completionEventId={0} />,
+    );
+    const bite = getBiteImg(container)!;
+    const nativeRatio = Number(bite.getAttribute("width")) / Number(bite.getAttribute("height"));
+    expect(aspectRatio(bite)).toBeCloseTo(nativeRatio, 2);
+  });
+
+  it("idle and bite frames are NOT forced to identical width/height (they have different native aspect ratios, so identical CSS dimensions would distort one of them)", () => {
+    const { container } = render(
+      <BunnyCarrotProgress taskCount={4} completedCount={0} completionEventId={0} />,
+    );
+    const idle = getIdleImg(container)!;
+    const bite = getBiteImg(container)!;
+    expect(idle.style.width).not.toBe(bite.style.width);
+  });
+
+  it("switching frames does not resize the outer stage", () => {
+    vi.useFakeTimers();
+    const { container, rerender } = render(
+      <BunnyCarrotProgress taskCount={4} completedCount={0} completionEventId={0} />,
+    );
+    const root = getRoot(container)!;
+    const widthBefore = root.style.width;
+    const heightBefore = root.style.height;
+
+    rerender(<BunnyCarrotProgress taskCount={4} completedCount={1} completionEventId={1} />);
+    expect(isBiting(container)).toBe(true);
+    expect(root.style.width).toBe(widthBefore);
+    expect(root.style.height).toBe(heightBefore);
+  });
+
+  it("the carrot's vertical position stays aligned with the bunny's mouth-height anchor regardless of which frame is showing", () => {
+    vi.useFakeTimers();
+    const { container, rerender } = render(
+      <BunnyCarrotProgress taskCount={4} completedCount={0} completionEventId={0} />,
+    );
+    const carrotBoxBefore = getClipDiv(container)!.parentElement as HTMLElement;
+    const topBefore = carrotBoxBefore.style.top;
+
+    rerender(<BunnyCarrotProgress taskCount={4} completedCount={1} completionEventId={1} />);
+    const carrotBoxAfter = getClipDiv(container)!.parentElement as HTMLElement;
+    expect(carrotBoxAfter.style.top).toBe(topBefore);
+  });
+});

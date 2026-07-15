@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { RequireAuth } from "@/components/auth/RequireAuth";
@@ -13,6 +13,8 @@ import { ErrorState } from "@/components/feedback/ErrorState";
 import { Button } from "@/components/ui/Button";
 import { subscribeToProfile } from "@/lib/firestore/profiles";
 import { subscribeToActiveLists } from "@/lib/firestore/lists";
+import { useOnlineStatus } from "@/lib/use-online-status";
+import { useOverdueResetCheck } from "@/lib/reset/use-overdue-reset-check";
 import type { ListWithId, ProfileWithId } from "@/lib/types/domain";
 
 function ProfileHomeScreen() {
@@ -23,6 +25,7 @@ function ProfileHomeScreen() {
 
   const [profile, setProfile] = useState<ProfileWithId | null | undefined>(undefined);
   const [lists, setLists] = useState<ListWithId[] | null>(null);
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
     if (!user) return;
@@ -35,6 +38,17 @@ function ProfileHomeScreen() {
     const unsubscribe = subscribeToActiveLists(user.uid, profileId, setLists);
     return unsubscribe;
   }, [user, profileId]);
+
+  // The list-overview cards show completedCount/taskCount directly from
+  // Firestore (specification §11.6) — without this, a list that became
+  // overdue since it was last opened would keep showing yesterday's
+  // stale progress here indefinitely, since nothing else visits this
+  // screen's lists individually until a card is tapped.
+  const resettableLists = useMemo(
+    () => (lists ?? []).map((list) => ({ id: list.id, profileId, nextResetAt: list.nextResetAt })),
+    [lists, profileId],
+  );
+  useOverdueResetCheck(isOnline, resettableLists);
 
   if (profile === undefined || (profile && lists === null)) return <LoadingState />;
   if (profile === null) {

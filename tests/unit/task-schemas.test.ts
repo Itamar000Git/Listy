@@ -2,9 +2,66 @@ import { describe, expect, it } from "vitest";
 import {
   taskCreateSchema,
   taskDescriptionSchema,
+  taskReorderSchema,
   taskUpdateSchema,
 } from "@/lib/validation/schemas";
 import { GENERIC_TASK_IMAGE_KEYS } from "@/lib/images/generic-task-images";
+
+describe("taskReorderSchema", () => {
+  it("accepts a valid ordered list of task IDs", () => {
+    const result = taskReorderSchema.safeParse({
+      profileId: "p1",
+      listId: "l1",
+      orderedTaskIds: ["t1", "t2", "t3"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects duplicate task IDs", () => {
+    const result = taskReorderSchema.safeParse({
+      profileId: "p1",
+      listId: "l1",
+      orderedTaskIds: ["t1", "t2", "t1"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an empty array", () => {
+    const result = taskReorderSchema.safeParse({ profileId: "p1", listId: "l1", orderedTaskIds: [] });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a task ID containing a slash (path-injection guard)", () => {
+    const result = taskReorderSchema.safeParse({
+      profileId: "p1",
+      listId: "l1",
+      orderedTaskIds: ["t1", "a/b"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an unbounded payload beyond the max size", () => {
+    const result = taskReorderSchema.safeParse({
+      profileId: "p1",
+      listId: "l1",
+      orderedTaskIds: Array.from({ length: 201 }, (_, i) => `t${i}`),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("ignores an unexpected familyId field in the payload (familyId always comes from the verified token)", () => {
+    const result = taskReorderSchema.safeParse({
+      profileId: "p1",
+      listId: "l1",
+      orderedTaskIds: ["t1"],
+      familyId: "someone-elses-family",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty("familyId");
+    }
+  });
+});
 
 describe("taskDescriptionSchema", () => {
   it("accepts undefined (field omitted)", () => {

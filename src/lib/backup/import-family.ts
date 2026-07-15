@@ -109,6 +109,11 @@ export async function importFamilyBackup(
     });
   }
 
+  // Deterministic fallback order (specification: task reordering) for a
+  // backup exported before displayOrder existed — position within the
+  // file, per original list, in the order tasks appear in the payload.
+  const fallbackOrderByOldListId = new Map<string, number>();
+
   let tasksImported = 0;
   for (const task of payload.tasks) {
     const newListId = listIdMap.get(task.listId);
@@ -123,12 +128,19 @@ export async function importFamilyBackup(
       .collection(tasksCollectionPath(familyId, newProfileIdForTask, newListId))
       .doc();
 
+    let displayOrder = task.displayOrder;
+    if (displayOrder === undefined) {
+      const fallback = fallbackOrderByOldListId.get(task.listId) ?? 0;
+      displayOrder = fallback;
+      fallbackOrderByOldListId.set(task.listId, fallback + 1);
+    }
+
     queueSet(newTaskRef, {
       title: task.title,
       description: task.description ?? null,
       imageKey: task.imageKey,
       completedCycle: task.completedCycle,
-      displayOrder: task.displayOrder,
+      displayOrder,
       isDeleted: task.isDeleted,
       deletedAt: toTimestampOrNull(task.deletedAt),
       createdAt: toTimestampOrNull(task.createdAt) ?? Timestamp.now(),

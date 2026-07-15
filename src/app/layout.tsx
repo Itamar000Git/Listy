@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Rubik } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { MusicProvider } from "@/components/music/MusicProvider";
 import "./globals.css";
 
 const rubik = Rubik({
@@ -27,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" className={`${rubik.variable} h-full antialiased`}>
       <body className="flex h-full min-h-dvh flex-col bg-background text-text">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <MusicProvider>{children}</MusicProvider>
+        </AuthProvider>
       </body>
     </html>
   );

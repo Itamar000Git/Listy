@@ -192,6 +192,24 @@ export const taskToggleCompletionSchema = z.object({
   taskId: firestoreIdSchema,
 });
 
+/**
+ * Bounded (max 200 active tasks per list is generous at family scale —
+ * see specification §34) ordered array of task IDs representing the
+ * desired top-to-bottom display order. Duplicate-ID rejection happens
+ * here; "matches the server's active set exactly" is re-verified inside
+ * the route's transaction against live data, since that can't be judged
+ * from the payload shape alone.
+ */
+export const taskReorderSchema = z.object({
+  profileId: firestoreIdSchema,
+  listId: firestoreIdSchema,
+  orderedTaskIds: z
+    .array(firestoreIdSchema)
+    .min(1, "אין משימות לסידור")
+    .max(200, "יותר מדי משימות")
+    .refine((ids) => new Set(ids).size === ids.length, { message: "מזהה משימה כפול" }),
+});
+
 export const listCheckResetSchema = z.object({
   profileId: firestoreIdSchema,
   listId: firestoreIdSchema,
@@ -248,7 +266,10 @@ export const backupTaskSchema = z.object({
   description: taskDescriptionSchema,
   imageKey: imageKeySchema,
   completedCycle: z.number().int().min(1).nullable(),
-  displayOrder: z.number().int().min(0),
+  // Optional so a backup exported before task reordering existed still
+  // validates — import-family.ts assigns a deterministic fallback order
+  // (position within the file) when it's missing.
+  displayOrder: z.number().int().min(0).optional(),
   isDeleted: z.boolean(),
   deletedAt: isoDateNullableSchema,
   createdAt: isoDateSchema,

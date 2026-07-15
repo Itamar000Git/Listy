@@ -178,6 +178,24 @@ describe("importFamilyBackup", () => {
     expect(withoutDescription?.data.description).toBeNull();
   });
 
+  it("assigns a deterministic fallback displayOrder (position within the file, per list) when the backup predates task ordering", async () => {
+    const backup = makeBackup();
+    // Simulate an older export: no task in this backup has displayOrder.
+    for (const task of backup.tasks) {
+      delete (task as { displayOrder?: number }).displayOrder;
+    }
+
+    await importFamilyBackup("family-1", backup);
+
+    const taskWrites = writes.filter((w) => w.path.includes("/tasks/"));
+    const orderByTitle: Record<string, unknown> = {};
+    for (const w of taskWrites) orderByTitle[w.data.title as string] = w.data.displayOrder;
+
+    expect(orderByTitle["משימה א"]).toBe(0);
+    expect(orderByTitle["משימה ב"]).toBe(1);
+    expect(orderByTitle["משימה ג (נמחקה)"]).toBe(2);
+  });
+
   it("skips tasks/lists that reference a parent not present in the file (defensive, no crash)", async () => {
     const backup = makeBackup();
     backup.tasks.push({

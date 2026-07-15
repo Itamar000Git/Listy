@@ -9,10 +9,12 @@ import { MobileAppShell } from "@/components/shell/MobileAppShell";
 import { MobileHeader } from "@/components/shell/MobileHeader";
 import { BulletinBoard } from "@/components/board/BulletinBoard";
 import { TaskImageCard } from "@/components/board/TaskImageCard";
+import { TaskReorderList } from "@/components/board/TaskReorderList";
 import { TaskProgress } from "@/components/board/TaskProgress";
 import { BunnyCarrotProgress } from "@/components/board/BunnyCarrotProgress";
 import { VictoryOverlay } from "@/components/celebration/VictoryOverlay";
 import { StickyListActions } from "@/components/actions/StickyListActions";
+import { StickyBottomBar } from "@/components/shell/StickyBottomBar";
 import { SoundToggle } from "@/components/settings/SoundToggle";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingState } from "@/components/feedback/LoadingState";
@@ -23,6 +25,7 @@ import { subscribeToList } from "@/lib/firestore/lists";
 import { subscribeToActiveTasks } from "@/lib/firestore/tasks";
 import { soundManager } from "@/lib/audio/sound-manager";
 import { useOnlineStatus } from "@/lib/use-online-status";
+import { useOverdueResetCheck } from "@/lib/reset/use-overdue-reset-check";
 import { errorMessageForStatus } from "@/lib/api/error-messages";
 import type { ListWithId, TaskWithId } from "@/lib/types/domain";
 
@@ -40,6 +43,10 @@ function TaskBoardScreen() {
   const [showVictory, setShowVictory] = useState(false);
   const [listenerError, setListenerError] = useState(false);
   const [completionEventId, setCompletionEventId] = useState(0);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [stagedOrder, setStagedOrder] = useState<TaskWithId[] | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
   const isOnline = useOnlineStatus();
 
   useEffect(() => {
@@ -64,6 +71,15 @@ function TaskBoardScreen() {
     if (!user || !isOnline) return;
     callApi("/api/lists/check-reset", { body: { profileId, listId } }).catch(() => {});
   }, [user, profileId, listId, isOnline]);
+
+  // Additional overdue-only check that also re-runs on tab focus /
+  // visibility return (e.g. the board was left open overnight) — the
+  // effect above only fires once when the board is first opened.
+  const resettableLists = useMemo(
+    () => (list ? [{ id: list.id, profileId, nextResetAt: list.nextResetAt }] : []),
+    [list, profileId],
+  );
+  useOverdueResetCheck(isOnline, resettableLists);
 
   // Each task's override is set to the server-confirmed value on success
   // and removed on failure (see handleToggle), so it always matches
@@ -131,6 +147,51 @@ function TaskBoardScreen() {
     }
   }
 
+  function enterReorderMode() {
+    setStagedOrder(tasks ? [...tasks].sort((a, b) => a.displayOrder - b.displayOrder) : []);
+    setReorderError(null);
+    setReorderMode(true);
+  }
+
+  function cancelReorder() {
+    setReorderMode(false);
+    setStagedOrder(null);
+    setReorderError(null);
+  }
+
+  function moveStagedTask(taskId: string, direction: -1 | 1) {
+    setStagedOrder((current) => {
+      if (!current) return current;
+      const index = current.findIndex((t) => t.id === taskId);
+      const swapIndex = index + direction;
+      if (index < 0 || swapIndex < 0 || swapIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+      return next;
+    });
+  }
+
+  async function saveReorder() {
+    if (!stagedOrder || !isOnline) return;
+    setSavingOrder(true);
+    setReorderError(null);
+    try {
+      const response = await callApi("/api/tasks/reorder", {
+        body: { profileId, listId, orderedTaskIds: stagedOrder.map((t) => t.id) },
+      });
+      if (!response.ok) {
+        setReorderError(errorMessageForStatus(response.status));
+        return;
+      }
+      setReorderMode(false);
+      setStagedOrder(null);
+    } catch {
+      setReorderError("לא ניתן היה לשמור את הסדר. נסו שוב.");
+    } finally {
+      setSavingOrder(false);
+    }
+  }
+
   if (listenerError) {
     return (
       <ErrorState
@@ -166,27 +227,45 @@ function TaskBoardScreen() {
         />
       }
       footer={
-        <StickyListActions
-          taskCount={taskCount}
-          completedCount={completedCount}
-          onFinish={() => {
-            soundManager.playListCompleted();
-            router.push(`/profiles/${profileId}`);
-          }}
-          onExitWithoutFinishing={() => router.push(`/profiles/${profileId}`)}
-        />
+        reorderMode ? (
+          <StickyBottomBar>
+            <div className="flex flex-col gap-2">
+              {reorderError ? <p className="text-center text-sm text-danger">{reorderError}</p> : null}
+              <Button onClick={saveReorder} disabled={savingOrder || !isOnline} fullWidth>
+                {savingOrder ? "שומרים..." : "שמירת סדר"}
+              </Button>
+              <Button variant="secondary" onClick={cancelReorder} disabled={savingOrder} fullWidth>
+                ביטול
+              </Button>
+            </div>
+          </StickyBottomBar>
+        ) : (
+          <StickyListActions
+            taskCount={taskCount}
+            completedCount={completedCount}
+            onFinish={() => {
+              soundManager.playListCompleted();
+              router.push(`/profiles/${profileId}`);
+            }}
+            onExitWithoutFinishing={() => router.push(`/profiles/${profileId}`)}
+          />
+        )
       }
     >
-      <TaskProgress completedCount={completedCount} taskCount={taskCount} />
-      <div className="px-4 pb-2">
-        <BunnyCarrotProgress
-          taskCount={taskCount}
-          completedCount={completedCount}
-          completionEventId={completionEventId}
-        />
-      </div>
+      {reorderMode ? null : (
+        <>
+          <TaskProgress completedCount={completedCount} taskCount={taskCount} />
+          <div className="px-4 pb-2">
+            <BunnyCarrotProgress
+              taskCount={taskCount}
+              completedCount={completedCount}
+              completionEventId={completionEventId}
+            />
+          </div>
+        </>
+      )}
 
-      {toggleError ? <p className="px-4 text-sm text-danger">{toggleError}</p> : null}
+      {toggleError && !reorderMode ? <p className="px-4 text-sm text-danger">{toggleError}</p> : null}
 
       {effectiveTasks.length === 0 ? (
         <EmptyState
@@ -198,8 +277,20 @@ function TaskBoardScreen() {
             </Button>
           }
         />
+      ) : reorderMode && stagedOrder ? (
+        <TaskReorderList tasks={stagedOrder} onMoveUp={(id) => moveStagedTask(id, -1)} onMoveDown={(id) => moveStagedTask(id, 1)} />
       ) : (
         <>
+          <div className="px-4 pb-2">
+            <button
+              type="button"
+              onClick={enterReorderMode}
+              disabled={!isOnline || effectiveTasks.length < 2}
+              className="text-sm font-bold text-text-muted underline disabled:opacity-40"
+            >
+              סידור משימות
+            </button>
+          </div>
           <BulletinBoard>
             {effectiveTasks.map((task) => (
               <TaskImageCard
